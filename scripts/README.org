@@ -1,0 +1,39 @@
+* extract-complete-genome.bash
+This script parses the prokaryotes dataset with awk to get accession numbers for
+each completes genomes.
+
+* prokgc.go
+This program is a simple program to compute differents gc contents.
+
+** Build with :
+
+#+BEGIN_SRC sh
+go build -o ../bin/prokgc prokgc.go
+#+END_SRC
+
+** Example output
+
+#+BEGIN_SRC sh
+../bin/prokgc -cds ../data/test.cds -gen ../data/test.genome -t TAXID -header | \
+    csvtk pretty
+#+END_SRC
+
+#+RESULTS:
+| taxid | n_chr | genome_length | N_content | genome_gc |      gc |      gc1 |      gc2 |      gc3 |    meanlen |  cumlen | nvalid_seq | nseq |
+| TAXID |     1 |       4809037 |       0.0 |  0.520927 | 0.52153 | 0.583121 | 0.408239 | 0.575958 | 910.645205 | 4073316 |       4473 | 4600 |
+
+- taxid ::
+- n_chr :: number of chr
+- genome_length :: cumulated genome length
+- N_content :: float, the proportions of N bases in genome
+- genome_gc :: whole genome GC content
+- gc :: CDS mean gc content
+- gcN :: gc in N codon position
+- meanlen :: mean CDS length
+- cumlen :: cumulated CDS length
+- nvalid_seq :: number of valid Coding Sequences
+- nseq :: number of coding sequences.
+
+* run-raa-query.sh
+This script uses raa_query to query a database on the LBBE servers using the
+ACNUC query language.
