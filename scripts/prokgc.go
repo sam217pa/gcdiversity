@@ -15,8 +15,8 @@ import (
 )
 
 var taxid = flag.String("t", "-", "TaxID of the strain")
-var input_genome = flag.String("gen", "tmp.genome", "Input Genome")
-var input_cds = flag.String("cds", "-", "Input CDS containing file, defaults to STDIN")
+var inputGenome = flag.String("gen", "tmp.genome", "Input Genome")
+var inputCds = flag.String("cds", "-", "Input CDS containing file, defaults to STDIN")
 var output = flag.String("o", "-", "Output file, defaults to STDOUT")
 var header = flag.Bool("header", false, "print CSV header, defaults to None.")
 
@@ -29,19 +29,19 @@ func main() {
 	defer outfh.Close()
 
 	// Deal with whole genome
-	reader_genome, err := fastx.NewReader(seq.DNA, *input_genome, `\|([^\|]+)\| `)
+	readerGenome, err := fastx.NewReader(seq.DNA, *inputGenome, `\|([^\|]+)\| `)
 	checkError(err)
 
-	n_chr := 0
-	genome_length := 0
-	var genome_N_content []float64
-	var genome_gc []float64
+	nChr := 0
+	genomeLength := 0
+	var genomeNContent []float64
+	var genomeGc []float64
 
 	// disable sequence validation could reduce time when reading large sequences
 	seq.ValidateSeq = false
 
 	for {
-		record, err := reader_genome.Read()
+		record, err := readerGenome.Read()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -50,18 +50,18 @@ func main() {
 			break
 		}
 
-		n_chr++
-		genome_length += record.Seq.Length()
-		genome_gc = append(genome_gc, record.Seq.GC())
-		genome_N_content = append(genome_N_content, record.Seq.BaseContent("N"))
+		nChr++
+		genomeLength += record.Seq.Length()
+		genomeGc = append(genomeGc, record.Seq.GC())
+		genomeNContent = append(genomeNContent, record.Seq.BaseContent("N"))
 	}
 
 	// Deal with CDS coding file
-	reader, err := fastx.NewDefaultReader(*input_cds)
+	reader, err := fastx.NewDefaultReader(*inputCds)
 	checkError(err)
 
-	nvalid_seq := 0
-	cumlen := 0
+	nvalidSeq := 0
+	cumLen := 0
 	nseq := 0
 	var seqlen []float64
 	var gc []float64
@@ -79,57 +79,57 @@ func main() {
 			break
 		}
 
-		seq_len := record.Seq.Length()
-		gc_rec := record.Seq.GC()
+		seqLen := record.Seq.Length()
+		gcRec := record.Seq.GC()
 		sequence := record.Seq.Seq
-		last_codon := string(sequence)[seq_len-3:]
-		good_last_codon, _ := regexp.MatchString("TAA|TAG|TGA", last_codon)
+		lastCodon := string(sequence)[seqLen-3:]
+		goodLastCodon, _ := regexp.MatchString("TAA|TAG|TGA", lastCodon)
 
-		var gc_1_rec []byte
-		for i := 0; i < seq_len-2; i += 3 {
-			gc_1_rec = append(gc_1_rec, sequence[i])
+		var gc1Rec []byte
+		for i := 0; i < seqLen-2; i += 3 {
+			gc1Rec = append(gc1Rec, sequence[i])
 		}
 
-		var gc_2_rec []byte
-		for i := 1; i < seq_len-2; i += 3 {
-			gc_2_rec = append(gc_2_rec, sequence[i])
+		var gc2Rec []byte
+		for i := 1; i < seqLen-2; i += 3 {
+			gc2Rec = append(gc2Rec, sequence[i])
 		}
 
-		var gc_3_rec []byte
-		for i := 2; i < seq_len-2; i += 3 {
-			gc_3_rec = append(gc_3_rec, sequence[i])
+		var gc3Rec []byte
+		for i := 2; i < seqLen-2; i += 3 {
+			gc3Rec = append(gc3Rec, sequence[i])
 		}
 
-		var gc1_rec, _ = fastx.NewRecord(seq.DNA, record.ID, record.Name, gc_1_rec)
-		var gc2_rec, _ = fastx.NewRecord(seq.DNA, record.ID, record.Name, gc_2_rec)
-		var gc3_rec, _ = fastx.NewRecord(seq.DNA, record.ID, record.Name, gc_3_rec)
+		var gc1Rec, _ = fastx.NewRecord(seq.DNA, record.ID, record.Name, gc1Rec)
+		var gc2Rec, _ = fastx.NewRecord(seq.DNA, record.ID, record.Name, gc2Rec)
+		var gc3Rec, _ = fastx.NewRecord(seq.DNA, record.ID, record.Name, gc3Rec)
 
 		// TODO filter out sequences with wrong ending codons
-		if seq_len%3 == 0 && good_last_codon {
-			nvalid_seq += 1
-			cumlen += seq_len
-			seqlen = append(seqlen, float64(seq_len))
-			gc = append(gc, gc_rec)
+		if seqLen%3 == 0 && goodLastCodon {
+			nvalidSeq += 1
+			cumLen += seqLen
+			seqlen = append(seqlen, float64(seqLen))
+			gc = append(gc, gcRec)
 			gc1 = append(gc1, gc1_rec.Seq.GC())
-			gc2 = append(gc2, gc2_rec.Seq.GC())
+			gc2 = append(gc2, gc2Rec.Seq.GC())
 			gc3 = append(gc3, gc3_rec.Seq.GC())
 		}
 		nseq++
 	}
 
 	if *header {
-		outfh.WriteString("taxid,n_chr,genome_length,N_content,genome_gc,gc,gc1,gc2,gc3,meanlen,cumlen,nvalid_seq,nseq\n")
+		outfh.WriteString("taxid,nChr,genomeLength,N_content,genomeGc,gc,gc1,gc2,gc3,meanlen,cumLen,nvalidSeq,nseq\n")
 	}
 
 	outfh.WriteString(fmt.Sprintf("%s,", strings.Trim(string(*taxid), "\n")))
-	outfh.WriteString(fmt.Sprintf("%d,%d,%f,%f,", n_chr, genome_length, mean(genome_N_content), mean(genome_gc)))
+	outfh.WriteString(fmt.Sprintf("%d,%d,%f,%f,", nChr, genomeLength, mean(genomeNContent), mean(genomeGc)))
 	outfh.WriteString(fmt.Sprintf("%f,", mean(gc)))
 	outfh.WriteString(fmt.Sprintf("%f,", mean(gc1)))
 	outfh.WriteString(fmt.Sprintf("%f,", mean(gc2)))
 	outfh.WriteString(fmt.Sprintf("%f,", mean(gc3)))
 	outfh.WriteString(fmt.Sprintf("%f,", mean(seqlen)))
-	outfh.WriteString(fmt.Sprintf("%d,", cumlen))
-	outfh.WriteString(fmt.Sprintf("%d,", nvalid_seq))
+	outfh.WriteString(fmt.Sprintf("%d,", cumLen))
+	outfh.WriteString(fmt.Sprintf("%d,", nvalidSeq))
 	outfh.WriteString(fmt.Sprintf("%d\n", nseq))
 
 }
